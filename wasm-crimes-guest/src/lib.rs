@@ -36,24 +36,21 @@ mod alloc_interface {
     const _: () = assert!(std::mem::size_of::<usize>() == std::mem::size_of::<u32>());
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn guest_alloc(size: u32, align: u32) -> u32 {
+    pub unsafe extern "C" fn guest_alloc(size: u32, align: u32) -> *mut u8 {
         let size = size as usize;
         let align = align as usize;
         let Ok(layout) = Layout::from_size_align(size, align) else {
-            return 0;
+            return std::ptr::null_mut();
         };
-        let ptr = unsafe { alloc(layout) };
-
-        ptr.addr() as u32
+        unsafe { alloc(layout) }
     }
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn guest_dealloc(ptr: u32, size: u32, align: u32) {
-        if ptr == 0 {
+    pub unsafe extern "C" fn guest_dealloc(ptr: *mut u8, size: u32, align: u32) {
+        if ptr.is_null() {
             return;
         }
 
-        let ptr = ptr as *mut u8;
         let size = size as usize;
         let align = align as usize;
 
@@ -61,27 +58,24 @@ mod alloc_interface {
             return;
         };
 
-        unsafe { dealloc(ptr as *mut u8, layout) };
+        unsafe { dealloc(ptr, layout) };
     }
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn guest_realloc(
-        ptr: u32,
+        ptr: *mut u8,
         old_size: u32,
         align: u32,
         new_size: u32,
-    ) -> u32 {
-        let ptr = ptr as *mut u8;
+    ) -> *mut u8 {
         let old_size = old_size as usize;
         let align = align as usize;
         let new_size = new_size as usize;
 
         let Ok(layout) = Layout::from_size_align(old_size, align) else {
-            return 0;
+            return std::ptr::null_mut();
         };
 
-        let new_ptr = unsafe { realloc(ptr as *mut u8, layout, new_size) };
-
-        new_ptr.addr() as u32
+        unsafe { realloc(ptr, layout, new_size) }
     }
 }
